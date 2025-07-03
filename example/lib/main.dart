@@ -36,6 +36,7 @@ class _ImageCompressPageState extends State<ImageCompressPage> {
   Duration? _compressDuration;
   final TextEditingController _sizeController =
       TextEditingController(text: '1');
+  bool _isKB = false;
 
   Future<void> _handleImage(ImageSource source) async {
     final picker = ImagePicker();
@@ -43,12 +44,22 @@ class _ImageCompressPageState extends State<ImageCompressPage> {
 
     if (pickedFile != null) {
       final imageBytes = await pickedFile.readAsBytes();
-      final maxSizeLevel = int.tryParse(_sizeController.text.trim()) ?? 1;
+
+      final rawValue = _sizeController.text.trim();
+      final sizeValue = int.tryParse(rawValue);
+
+      if (sizeValue == null || sizeValue <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("⚠️ Vui lòng nhập dung lượng hợp lệ")),
+        );
+        return;
+      }
 
       final stopwatch = Stopwatch()..start();
       final compressedBytes = await ImageCompress.compressImage(
         imageBytes: imageBytes,
-        maxSizeLevel: maxSizeLevel,
+        maxSizeInKB: _isKB ? sizeValue : null,
+        maxSizeLevel: _isKB ? 1 : sizeValue, // fallback nếu không chọn KB
       );
       stopwatch.stop();
 
@@ -63,7 +74,6 @@ class _ImageCompressPageState extends State<ImageCompressPage> {
   Future<void> _saveCompressedImage() async {
     if (_compressedImage == null) return;
 
-    // Android 13+ cần quyền "photos", Android < 13 cần "storage"
     if (await _requestSavePermission()) {
       final result = await ImageGallerySaverPlus.saveImage(
         _compressedImage!,
@@ -129,13 +139,35 @@ class _ImageCompressPageState extends State<ImageCompressPage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            TextField(
-              controller: _sizeController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Giới hạn dung lượng (MB)',
-                border: OutlineInputBorder(),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _sizeController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: _isKB
+                          ? 'Giới hạn dung lượng (KB)'
+                          : 'Giới hạn dung lượng (MB)',
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  children: [
+                    const Text("KB"),
+                    Switch(
+                      value: _isKB,
+                      onChanged: (value) {
+                        setState(() {
+                          _isKB = value;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -174,7 +206,6 @@ class _ImageCompressPageState extends State<ImageCompressPage> {
 
   Future<bool> _requestSavePermission() async {
     if (Theme.of(context).platform == TargetPlatform.android) {
-      // Android 13+ dùng quyền ảnh riêng biệt
       final photos = await Permission.photos.request();
       final storage = await Permission.storage.request();
       return photos.isGranted || storage.isGranted;

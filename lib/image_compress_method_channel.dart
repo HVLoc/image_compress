@@ -12,13 +12,20 @@ class MethodChannelImageCompress extends ImageCompressPlatform {
   @override
   Future<Uint8List?> compressImage({
     required Uint8List imageBytes,
-    int maxSizeLevel = 1, // 1 ~ 1MB
+    int? maxSizeInKB,
+    int maxSizeLevel = 1, // fallback nếu không có maxSizeInKB
   }) async {
-    final result =
-        await methodChannel.invokeMethod<Uint8List>('compressImage', {
+    final arguments = {
       'image': imageBytes,
-      'maxSizeLevel': maxSizeLevel,
-    });
+      if (maxSizeInKB != null) 'maxSizeInKB': maxSizeInKB,
+      if (maxSizeInKB == null) 'maxSizeLevel': maxSizeLevel,
+    };
+
+    final result = await methodChannel.invokeMethod<Uint8List>(
+      'compressImage',
+      arguments,
+    );
+
     return result;
   }
 }

@@ -14,20 +14,21 @@ public class ImageCompressPlugin: NSObject, FlutterPlugin {
        let imageData = args["image"] as? FlutterStandardTypedData,
        let image = UIImage(data: imageData.data)?.fixedOrientation() {
 
-      let level = args["maxSizeLevel"] as? Int ?? 1
-      let maxSize = level * 1_048_576
+      // Ưu tiên sử dụng maxSizeInKB nếu có
+      let maxSizeInKB = args["maxSizeInKB"] as? Int
+      let maxSizeLevel = args["maxSizeLevel"] as? Int ?? 1
+      let maxSizeInBytes = maxSizeInKB != nil ? maxSizeInKB! * 1024 : maxSizeLevel * 1_048_576
+
       let originalSize = imageData.data.count
 
-      let estimatedQuality = CGFloat(min(1.0, max(0.1, (Double(maxSize) / Double(originalSize)) * 1.2)))
-      var quality = estimatedQuality
-
+      var quality = CGFloat(min(1.0, max(0.1, (Double(maxSizeInBytes) / Double(originalSize)) * 1.2)))
       let minQuality: CGFloat = 0.1
-      var compressedData = image.jpegData(compressionQuality: quality)
-      var attempt = 0
       let maxAttempts = 10
+      var attempt = 0
+      var compressedData = image.jpegData(compressionQuality: quality)
 
       while let data = compressedData,
-            data.count > maxSize,
+            data.count > maxSizeInBytes,
             quality > minQuality,
             attempt < maxAttempts {
         quality -= 0.05
@@ -35,17 +36,33 @@ public class ImageCompressPlugin: NSObject, FlutterPlugin {
         attempt += 1
       }
 
-      if let finalData = compressedData, finalData.count <= maxSize {
+      if let finalData = compressedData, finalData.count <= maxSizeInBytes {
         result(finalData)
       } else {
         result(FlutterError(
           code: "COMPRESSION_FAILED",
-          message: "Cannot compress image under \(maxSize) bytes after \(attempt) attempts",
+          message: "Cannot compress image under \(maxSizeInBytes) bytes after \(attempt) attempts",
           details: nil
         ))
       }
+
     } else {
-      result(FlutterError(code: "INVALID_ARGUMENT", message: "Invalid arguments", details: nil))
+      result(FlutterError(code: "INVALID_ARGUMENT", message: "Invalid arguments or image", details: nil))
     }
   }
 }
+
+extension UIImage {
+  func fixedOrientation() -> UIImage {
+    if self.imageOrientation == .up {
+      return self
+    }
+
+    UIGraphicsBeginImageContextWithOptions(self.size, false, self.scale)
+    self.draw(in: CGRect(origin: .zero, size: self.size))
+    let normalizedImage = UIGraphicsGetImageFromCurrentImageContext()
+    UIGraphicsEndImageContext()
+    return normalizedImage ?? self
+  }
+}
+

@@ -27,6 +27,7 @@ abstract class ImageCompressPlatform extends PlatformInterface {
 
   Future<Uint8List?> compressImage({
     required Uint8List imageBytes,
+    int? maxSizeInKB,
     int maxSizeLevel = 1, // 1 ~ 1MB
   }) {
     throw UnimplementedError('compressImage() has not been implemented.');
