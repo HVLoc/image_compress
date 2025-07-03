@@ -77,7 +77,6 @@ class _ImageCompressPageState extends State<ImageCompressPage> {
     if (await _requestSavePermission()) {
       final result = await ImageGallerySaverPlus.saveImage(
         _compressedImage!,
-        quality: 100,
         name: "compressed_${DateTime.now().millisecondsSinceEpoch}",
       );
 
