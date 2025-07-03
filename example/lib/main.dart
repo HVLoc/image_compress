@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_compress/image_compress.dart'; // plugin bạn đã tạo
 import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
 import 'package:image_picker/image_picker.dart';
@@ -17,10 +18,11 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Image Compress & Save',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(primarySwatch: Colors.blue),
       home: const ImageCompressPage(),
     );
-  }
+  } 
 }
 
 class ImageCompressPage extends StatefulWidget {
@@ -56,18 +58,23 @@ class _ImageCompressPageState extends State<ImageCompressPage> {
       }
 
       final stopwatch = Stopwatch()..start();
-      final compressedBytes = await ImageCompress.compressImage(
-        imageBytes: imageBytes,
-        maxSizeInKB: _isKB ? sizeValue : null,
-        maxSizeLevel: _isKB ? 1 : sizeValue, // fallback nếu không chọn KB
-      );
-      stopwatch.stop();
+      try {
+        final compressedBytes = await ImageCompress.compressImage(
+          imageBytes: imageBytes,
+          maxSizeInKB: _isKB ? sizeValue : null,
+          maxSizeLevel: _isKB ? 1 : sizeValue, // fallback nếu không chọn KB
+        );
+        setState(() {
+          _originalImage = imageBytes;
+          _compressedImage = compressedBytes;
+          _compressDuration = stopwatch.elapsed;
+        });
+      } on PlatformException catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("❌ Lỗi: ${e.code} - ${e.message}")));
+      }
 
-      setState(() {
-        _originalImage = imageBytes;
-        _compressedImage = compressedBytes;
-        _compressDuration = stopwatch.elapsed;
-      });
+      stopwatch.stop();
     }
   }
 
