@@ -25,18 +25,23 @@ class ImageCompressPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         if (call.method == "compressImage") {
             val imageBytes = call.argument<ByteArray>("image")
-            val maxSizeInKB = call.argument<Int>("maxSizeInKB")      // Ưu tiên truyền theo KB
             val maxSizeLevel = call.argument<Int>("maxSizeLevel") ?: 1
-            val maxSize = maxSizeInKB?.times(1024) ?: (maxSizeLevel * 1_048_576)
+            val maxSizeInKB = call.argument<Int>("maxSizeInKB")
+            val maxSize = maxSizeInKB?.times(1024) ?: maxSizeLevel * 1_048_576
 
             if (imageBytes != null) {
+                if (imageBytes.size <= maxSize) {
+                    result.success(imageBytes) // ✅ ảnh đã nhỏ hơn giới hạn
+                    return
+                }
+
                 val compressed = compressImage(imageBytes, maxSize)
                 if (compressed != null) {
                     result.success(compressed)
                 } else {
                     result.error(
                         "COMPRESSION_FAILED",
-                        "Cannot compress image under $maxSize bytes",
+                        "Cannot compress image under ${maxSize} bytes",
                         null
                     )
                 }
@@ -48,13 +53,10 @@ class ImageCompressPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         }
     }
 
-    /**
-     * Nén ảnh JPEG sao cho dung lượng đầu ra <= maxSize (bytes)
-     */
     private fun compressImage(imageBytes: ByteArray, maxSize: Int): ByteArray? {
         val originalBitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size) ?: return null
 
-        // Đọc orientation từ EXIF và xoay ảnh nếu cần
+        // Xoay ảnh đúng hướng
         val exif = ExifInterface(ByteArrayInputStream(imageBytes))
         val orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
         val rotatedBitmap = when (orientation) {
@@ -82,12 +84,9 @@ class ImageCompressPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         return if (compressedBytes.size <= maxSize) compressedBytes else null
     }
 
-    /**
-     * Xoay ảnh bitmap theo góc angle (độ)
-     */
     private fun rotateBitmap(source: Bitmap, angle: Float): Bitmap {
-        val matrix = Matrix().apply { postRotate(angle) }
+        val matrix = Matrix()
+        matrix.postRotate(angle)
         return Bitmap.createBitmap(source, 0, 0, source.width, source.height, matrix, true)
     }
 }
-

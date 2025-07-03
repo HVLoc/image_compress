@@ -14,14 +14,16 @@ public class ImageCompressPlugin: NSObject, FlutterPlugin {
        let imageData = args["image"] as? FlutterStandardTypedData,
        let image = UIImage(data: imageData.data)?.fixedOrientation() {
 
-      // Ưu tiên sử dụng maxSizeInKB nếu có
       let maxSizeInKB = args["maxSizeInKB"] as? Int
       let maxSizeLevel = args["maxSizeLevel"] as? Int ?? 1
       let maxSizeInBytes = maxSizeInKB != nil ? maxSizeInKB! * 1024 : maxSizeLevel * 1_048_576
 
-      let originalSize = imageData.data.count
+      if imageData.data.count <= maxSizeInBytes {
+        result(imageData.data) // ✅ ảnh gốc đã nhỏ hơn giới hạn
+        return
+      }
 
-      var quality = CGFloat(min(1.0, max(0.1, (Double(maxSizeInBytes) / Double(originalSize)) * 1.2)))
+      var quality = CGFloat(min(1.0, max(0.1, (Double(maxSizeInBytes) / Double(imageData.data.count)) * 1.2)))
       let minQuality: CGFloat = 0.1
       let maxAttempts = 10
       var attempt = 0
@@ -54,10 +56,7 @@ public class ImageCompressPlugin: NSObject, FlutterPlugin {
 
 extension UIImage {
   func fixedOrientation() -> UIImage {
-    if self.imageOrientation == .up {
-      return self
-    }
-
+    if self.imageOrientation == .up { return self }
     UIGraphicsBeginImageContextWithOptions(self.size, false, self.scale)
     self.draw(in: CGRect(origin: .zero, size: self.size))
     let normalizedImage = UIGraphicsGetImageFromCurrentImageContext()
@@ -65,4 +64,3 @@ extension UIImage {
     return normalizedImage ?? self
   }
 }
-
