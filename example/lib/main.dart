@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_compress/image_compress.dart'; // plugin bạn đã tạo
@@ -22,7 +20,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(primarySwatch: Colors.blue),
       home: const ImageCompressPage(),
     );
-  } 
+  }
 }
 
 class ImageCompressPage extends StatefulWidget {
