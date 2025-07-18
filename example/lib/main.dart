@@ -1,7 +1,7 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_compress/image_compress.dart'; // plugin bạn đã tạo
-import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -33,10 +33,10 @@ class ImageCompressPage extends StatefulWidget {
 class _ImageCompressPageState extends State<ImageCompressPage> {
   Uint8List? _originalImage;
   Uint8List? _compressedImage;
+  String? _savedTempPath;
   Duration? _compressDuration;
-  final TextEditingController _sizeController =
-      TextEditingController(text: '1');
-  bool _isKB = false;
+  final TextEditingController _sizeController = TextEditingController(text: '500');
+  bool _isKB = true;
 
   Future<void> _handleImage(ImageSource source) async {
     final picker = ImagePicker();
@@ -60,44 +60,75 @@ class _ImageCompressPageState extends State<ImageCompressPage> {
         final compressedBytes = await ImageCompress.compressImage(
           imageBytes: imageBytes,
           maxSizeInKB: _isKB ? sizeValue : null,
-          maxSizeLevel: _isKB ? 1 : sizeValue, // fallback nếu không chọn KB
+          maxSizeLevel: _isKB ? 1 : sizeValue,
         );
+        stopwatch.stop();
+
         setState(() {
           _originalImage = imageBytes;
           _compressedImage = compressedBytes;
           _compressDuration = stopwatch.elapsed;
+          _savedTempPath = null;
         });
       } on PlatformException catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text("❌ Lỗi: ${e.code} - ${e.message}")));
       }
-
-      stopwatch.stop();
     }
   }
 
-  Future<void> _saveCompressedImage() async {
-    if (_compressedImage == null) return;
+  Future<void> _saveToGallery() async {
+    if (_originalImage == null) return;
 
-    if (await _requestSavePermission()) {
-      final result = await ImageGallerySaverPlus.saveImage(
-        _compressedImage!,
-        name: "compressed_${DateTime.now().millisecondsSinceEpoch}",
-      );
-
-      if (result['isSuccess'] == true || result['filePath'] != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("✅ Đã lưu ảnh vào thư viện")),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("❌ Lưu ảnh thất bại")),
-        );
-      }
-    } else {
+    if (!await _requestSavePermission()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("⚠️ Không được cấp quyền lưu ảnh")),
       );
+      return;
+    }
+
+    final rawValue = _sizeController.text.trim();
+    final sizeValue = int.tryParse(rawValue);
+    if (sizeValue == null || sizeValue <= 0) return;
+
+    final success = await ImageCompress.compressAndSaveToGallery(
+      imageBytes: _originalImage!,
+      maxSizeInKB: _isKB ? sizeValue : null,
+      maxSizeLevel: _isKB ? 1 : sizeValue,
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(success
+          ? "✅ Đã lưu ảnh đã nén vào thư viện"
+          : "❌ Không thể lưu ảnh"),
+    ));
+  }
+
+  Future<void> _saveToTempFile() async {
+    if (_originalImage == null) return;
+
+    final rawValue = _sizeController.text.trim();
+    final sizeValue = int.tryParse(rawValue);
+    if (sizeValue == null || sizeValue <= 0) return;
+
+    final tempPath = await ImageCompress.compressAndSaveTempFile(
+      imageBytes: _originalImage!,
+      maxSizeInKB: _isKB ? sizeValue : null,
+      maxSizeLevel: _isKB ? 1 : sizeValue,
+    );
+
+    if (tempPath != null) {
+      setState(() {
+        _savedTempPath = tempPath;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text("✅ Đã lưu vào file tạm:\n$tempPath"),
+        duration: const Duration(seconds: 4),
+      ));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text("❌ Không thể lưu vào file tạm"),
+      ));
     }
   }
 
@@ -127,6 +158,18 @@ class _ImageCompressPageState extends State<ImageCompressPage> {
     final seconds = duration.inSeconds;
     final milliseconds = duration.inMilliseconds % 1000;
     return '${seconds}s ${milliseconds}ms';
+  }
+
+  Future<bool> _requestSavePermission() async {
+    if (Theme.of(context).platform == TargetPlatform.android) {
+      final photos = await Permission.photos.request();
+      final storage = await Permission.storage.request();
+      return photos.isGranted || storage.isGranted;
+    } else if (Theme.of(context).platform == TargetPlatform.iOS) {
+      final status = await Permission.photosAddOnly.request();
+      return status.isGranted;
+    }
+    return false;
   }
 
   @override
@@ -163,11 +206,7 @@ class _ImageCompressPageState extends State<ImageCompressPage> {
                     const Text("KB"),
                     Switch(
                       value: _isKB,
-                      onChanged: (value) {
-                        setState(() {
-                          _isKB = value;
-                        });
-                      },
+                      onChanged: (value) => setState(() => _isKB = value),
                     ),
                   ],
                 ),
@@ -177,7 +216,6 @@ class _ImageCompressPageState extends State<ImageCompressPage> {
             Wrap(
               spacing: 12,
               runSpacing: 12,
-              alignment: WrapAlignment.center,
               children: [
                 ElevatedButton.icon(
                   icon: const Icon(Icons.photo_library),
@@ -192,8 +230,14 @@ class _ImageCompressPageState extends State<ImageCompressPage> {
                 if (_compressedImage != null)
                   ElevatedButton.icon(
                     icon: const Icon(Icons.save),
-                    label: const Text('Lưu ảnh đã nén'),
-                    onPressed: _saveCompressedImage,
+                    label: const Text('Lưu vào thư viện'),
+                    onPressed: _saveToGallery,
+                  ),
+                if (_compressedImage != null)
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.folder),
+                    label: const Text('Lưu file tạm'),
+                    onPressed: _saveToTempFile,
                   ),
               ],
             ),
@@ -202,21 +246,13 @@ class _ImageCompressPageState extends State<ImageCompressPage> {
             _buildImageView(_compressedImage, "Ảnh đã nén"),
             if (_compressDuration != null)
               Text("⏱ Thời gian nén: ${_formatDuration(_compressDuration!)}"),
+            if (_savedTempPath != null) ...[
+              const SizedBox(height: 10),
+              Text("📁 Temp file path:\n$_savedTempPath"),
+            ]
           ],
         ),
       ),
     );
-  }
-
-  Future<bool> _requestSavePermission() async {
-    if (Theme.of(context).platform == TargetPlatform.android) {
-      final photos = await Permission.photos.request();
-      final storage = await Permission.storage.request();
-      return photos.isGranted || storage.isGranted;
-    } else if (Theme.of(context).platform == TargetPlatform.iOS) {
-      final status = await Permission.photosAddOnly.request();
-      return status.isGranted;
-    }
-    return false;
   }
 }
