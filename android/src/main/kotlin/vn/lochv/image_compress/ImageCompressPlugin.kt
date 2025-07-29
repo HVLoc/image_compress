@@ -80,7 +80,8 @@ class ImageCompressPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             attempt++
         } while (compressedBytes.size > maxSize && quality > minQuality && attempt < maxAttempts)
 
-        return if (compressedBytes.size <= maxSize) compressedBytes else null
+       // return if (compressedBytes.size <= maxSize) compressedBytes else null
+        return compressedBytes
     }
 
     private fun compressAndSaveToGallery(imageBytes: ByteArray, maxSize: Int, result: MethodChannel.Result) {

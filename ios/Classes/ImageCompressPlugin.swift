@@ -79,11 +79,12 @@ public class ImageCompressPlugin: NSObject, FlutterPlugin {
       attempt += 1
     }
 
-    if let data = compressedData, data.count <= maxSizeInBytes {
-      completion(data)
-    } else {
-      completion(nil)
-    }
+    // if let data = compressedData, data.count <= maxSizeInBytes {
+    //   completion(data)
+    // } else {
+    //   completion(nil)
+    // }
+    completion(data)
   }
 
   private func saveToGallery(data: Data, result: @escaping FlutterResult) {
