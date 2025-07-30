@@ -23,7 +23,7 @@ public class ImageCompressPlugin: NSObject, FlutterPlugin {
 
     switch call.method {
     case "compressImage":
-      compressImage(uiImage: uiImage, maxSizeInBytes: maxSizeInBytes, originalData: imageData.data, result: result)
+      compressImageHandle(uiImage: uiImage, maxSizeInBytes: maxSizeInBytes, originalData: imageData.data, result: result)
 
     case "compressAndSaveToGallery":
       compressImage(uiImage: uiImage, maxSizeInBytes: maxSizeInBytes, originalData: imageData.data) { compressed in
@@ -48,8 +48,8 @@ public class ImageCompressPlugin: NSObject, FlutterPlugin {
     }
   }
 
-  private func compressImage(uiImage: UIImage, maxSizeInBytes: Int, originalData: Data, result: @escaping FlutterResult) {
-    compressImageHandle(uiImage: uiImage, maxSizeInBytes: maxSizeInBytes, originalData: originalData) { compressed in
+  private func compressImageHandle(uiImage: UIImage, maxSizeInBytes: Int, originalData: Data, result: @escaping FlutterResult) {
+    compressImage(uiImage: uiImage, maxSizeInBytes: maxSizeInBytes, originalData: originalData) { compressed in
       if let finalData = compressed {
         result(finalData)
       } else {
@@ -58,7 +58,7 @@ public class ImageCompressPlugin: NSObject, FlutterPlugin {
     }
   }
 
-  private func compressImageHandle(uiImage: UIImage, maxSizeInBytes: Int, originalData: Data, completion: @escaping (Data?) -> Void) {
+  private func compressImage(uiImage: UIImage, maxSizeInBytes: Int, originalData: Data, completion: @escaping (Data?) -> Void) {
       // Nếu ảnh gốc đã nhỏ hơn yêu cầu, trả luôn
       if originalData.count <= maxSizeInBytes {
           completion(originalData)
