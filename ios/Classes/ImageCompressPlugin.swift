@@ -84,7 +84,7 @@ public class ImageCompressPlugin: NSObject, FlutterPlugin {
     // } else {
     //   completion(nil)
     // }
-    completion(data)
+    completion(compressedData)
   }
 
   private func saveToGallery(data: Data, result: @escaping FlutterResult) {
