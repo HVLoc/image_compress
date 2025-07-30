@@ -49,7 +49,7 @@ public class ImageCompressPlugin: NSObject, FlutterPlugin {
   }
 
   private func compressImage(uiImage: UIImage, maxSizeInBytes: Int, originalData: Data, result: @escaping FlutterResult) {
-    compressImage(uiImage: uiImage, maxSizeInBytes: maxSizeInBytes, originalData: originalData) { compressed in
+    compressImageHandle(uiImage: uiImage, maxSizeInBytes: maxSizeInBytes, originalData: originalData) { compressed in
       if let finalData = compressed {
         result(finalData)
       } else {
@@ -58,33 +58,31 @@ public class ImageCompressPlugin: NSObject, FlutterPlugin {
     }
   }
 
-  private func compressImage(uiImage: UIImage, maxSizeInBytes: Int, originalData: Data, completion: @escaping (Data?) -> Void) {
-    if originalData.count <= maxSizeInBytes {
-      completion(originalData)
-      return
-    }
+  private func compressImageHandle(uiImage: UIImage, maxSizeInBytes: Int, originalData: Data, completion: @escaping (Data?) -> Void) {
+      // Nếu ảnh gốc đã nhỏ hơn yêu cầu, trả luôn
+      if originalData.count <= maxSizeInBytes {
+          completion(originalData)
+          return
+      }
 
-    var quality = CGFloat(min(1.0, max(0.1, (Double(maxSizeInBytes) / Double(originalData.count)) * 1.2)))
-    let minQuality: CGFloat = 0.1
-    let maxAttempts = 10
-    var attempt = 0
-    var compressedData = uiImage.jpegData(compressionQuality: quality)
+      // Tính quality ban đầu theo tỉ lệ, nhưng không nhỏ hơn 0.1
+      var quality = CGFloat(min(1.0, max(0.1, (Double(maxSizeInBytes) / Double(originalData.count)) * 1.2)))
+      let minQuality: CGFloat = 0.1
+      let maxAttempts = 10
+      var attempt = 0
+      var compressedData = uiImage.jpegData(compressionQuality: quality)
 
-    while let data = compressedData,
-          data.count > maxSizeInBytes,
-          quality > minQuality,
-          attempt < maxAttempts {
-      quality -= 0.05
-      compressedData = uiImage.jpegData(compressionQuality: quality)
-      attempt += 1
-    }
+      while let data = compressedData,
+            data.count > maxSizeInBytes,
+            quality > minQuality,
+            attempt < maxAttempts {
+          quality -= 0.05
+          compressedData = uiImage.jpegData(compressionQuality: quality)
+          attempt += 1
+      }
 
-    // if let data = compressedData, data.count <= maxSizeInBytes {
-    //   completion(data)
-    // } else {
-    //   completion(nil)
-    // }
-    completion(compressedData)
+      // ✅ Luôn trả về kết quả nén tốt nhất có thể (kể cả vượt size)
+      completion(compressedData ?? originalData)
   }
 
   private func saveToGallery(data: Data, result: @escaping FlutterResult) {
