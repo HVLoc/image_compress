@@ -23,10 +23,10 @@ public class ImageCompressPlugin: NSObject, FlutterPlugin {
 
     switch call.method {
     case "compressImage":
-      compressImage(uiImage: uiImage, maxSizeInBytes: maxSizeInBytes, originalData: imageData.data, result: result)
+        compressImageHandle(uiImage: uiImage, maxSizeInBytes: maxSizeInBytes, originalData: imageData.data, result: result)
 
     case "compressAndSaveToGallery":
-      compressImage(uiImage: uiImage, maxSizeInBytes: maxSizeInBytes, originalData: imageData.data) { compressed in
+        compressImage(uiImage: uiImage, maxSizeInBytes: maxSizeInBytes, originalData: imageData.data) { compressed in
         guard let data = compressed else {
           result(FlutterError(code: "COMPRESSION_FAILED", message: "❌ Không thể nén ảnh", details: nil))
           return
@@ -48,7 +48,7 @@ public class ImageCompressPlugin: NSObject, FlutterPlugin {
     }
   }
 
-  private func compressImage(uiImage: UIImage, maxSizeInBytes: Int, originalData: Data, result: @escaping FlutterResult) {
+  private func compressImageHandle(uiImage: UIImage, maxSizeInBytes: Int, originalData: Data, result: @escaping FlutterResult) {
     compressImage(uiImage: uiImage, maxSizeInBytes: maxSizeInBytes, originalData: originalData) { compressed in
       if let finalData = compressed {
         result(finalData)
